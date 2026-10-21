@@ -1,0 +1,57 @@
+{
+  "AuthRequest": {"username": "demo_user", "password": "example-only-password"},
+  "TokenResponse": {"access_token": "example-only-token", "token_type": "bearer", "expires_in": 3600, "user_id": "00000000-0000-4000-8000-000000000001"},
+  "CreateWorkout": {"exercise": "squat", "challenge_id": null},
+  "CreateChallenge": {"exercise": "push_up"},
+  "WorkoutSession": {
+    "session_id": "00000000-0000-4000-8000-000000000002",
+    "user_id": "00000000-0000-4000-8000-000000000001",
+    "exercise": "squat", "challenge_id": null, "status": "active",
+    "started_at": "2026-10-21T09:00:00Z", "ended_at": null
+  },
+  "FormFeedback": {"code": "low_confidence", "severity": "warning", "message": "Show all required joints clearly."},
+  "RepEvent": {
+    "schema_version": "1.0.0", "event_id": "00000000-0000-4000-8000-000000000003",
+    "session_id": "00000000-0000-4000-8000-000000000002", "exercise": "squat",
+    "sequence": 1, "started_at_ms": 100, "ended_at_ms": 1400,
+    "valid": true, "confidence": 0.95, "form_score": 1.0, "feedback": [],
+    "engine_version": "reference-1.0.0"
+  },
+  "ChallengeParticipant": {
+    "user_id": "00000000-0000-4000-8000-000000000001",
+    "session_id": "00000000-0000-4000-8000-000000000002", "accepted_reps": 1
+  },
+  "Challenge": {
+    "challenge_id": "00000000-0000-4000-8000-000000000004", "exercise": "squat",
+    "status": "active", "created_at": "2026-10-21T08:59:00Z",
+    "participants": [
+      {"user_id": "00000000-0000-4000-8000-000000000001", "session_id": "00000000-0000-4000-8000-000000000002", "accepted_reps": 1},
+      {"user_id": "00000000-0000-4000-8000-000000000005", "session_id": "00000000-0000-4000-8000-000000000006", "accepted_reps": 0}
+    ]
+  },
+  "ScoreUpdate": {
+    "schema_version": "1.0.0", "type": "challenge.score_updated",
+    "event_id": "00000000-0000-4000-8000-000000000007",
+    "challenge_id": "00000000-0000-4000-8000-000000000004",
+    "revision": 2, "occurred_at": "2026-10-21T09:00:02Z",
+    "participants": [
+      {"user_id": "00000000-0000-4000-8000-000000000001", "session_id": "00000000-0000-4000-8000-000000000002", "accepted_reps": 1},
+      {"user_id": "00000000-0000-4000-8000-000000000005", "session_id": "00000000-0000-4000-8000-000000000006", "accepted_reps": 0}
+    ]
+  },
+  "RepReceipt": {
+    "event_id": "00000000-0000-4000-8000-000000000003",
+    "session_id": "00000000-0000-4000-8000-000000000002",
+    "disposition": "accepted", "reason": null, "accepted_reps": 1
+  },
+  "ApiError": {"code": "conflict", "message": "Event ID already used with different content."},
+  "Landmark": {"x": 0.5, "y": 0.5, "confidence": 0.95},
+  "PoseFrame": {
+    "timestamp_ms": 100,
+    "landmarks": {
+      "hip": {"x": 0.5, "y": 0.2, "confidence": 0.95},
+      "knee": {"x": 0.5, "y": 0.5, "confidence": 0.95},
+      "ankle": {"x": 0.5, "y": 0.8, "confidence": 0.95}
+    }
+  }
+}
