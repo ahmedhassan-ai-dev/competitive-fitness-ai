@@ -1,0 +1,64 @@
+# Secrets / local settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.keystore
+*.jks
+key.properties
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.coverage
+htmlcov/
+
+# Dataset/model artifacts
+ml/data/**
+!ml/data/**/
+!ml/data/**/.gitkeep
+ml/models/**
+!ml/models/**/
+!ml/models/**/.gitkeep
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.h5
+*.mp4
+*.avi
+*.mov
+mlruns/
+
+# Flutter / Android generated
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+**/android/local.properties
+**/android/.gradle/
+**/android/captures/
+**/ios/Pods/
+**/build/
+*.apk
+*.aab
+
+# IDE / OS
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
