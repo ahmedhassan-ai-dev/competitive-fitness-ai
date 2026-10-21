@@ -18,3 +18,5 @@ jobs:
       - name: Run tests
         working-directory: services/backend
         run: python -m pytest -q
+      - name: Lint backend and shared reference packages
+        run: python -m ruff check --config services/backend/pyproject.toml services/backend/app services/backend/tests packages/contracts packages/exercise_engine
