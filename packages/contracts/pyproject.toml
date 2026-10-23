@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "competitive-fitness-contracts"
+version = "1.0.0"
+description = "Shared Competitive Fitness v1 wire contracts"
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2,<3"]
+
+[tool.setuptools]
+packages = ["packages.contracts", "packages.contracts.v1"]
+
+[tool.setuptools.package-dir]
+"packages.contracts" = "."
+
+[tool.setuptools.package-data]
+"packages.contracts" = ["README.md", "v1/*.json"]

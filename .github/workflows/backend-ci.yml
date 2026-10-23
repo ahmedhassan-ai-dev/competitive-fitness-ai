@@ -14,7 +14,10 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         working-directory: services/backend
-        run: pip install -e '.[dev]'
+        run: pip install -e ../../packages/contracts -e '.[dev]'
+      - name: Verify installed contracts outside repository imports
+        working-directory: services/backend
+        run: python -I -c "from packages.contracts.v1.models import AuthRequest; from importlib.resources import files; assert files('packages.contracts.v1').joinpath('schemas.json').is_file()"
       - name: Run tests
         working-directory: services/backend
         run: python -m pytest -q
