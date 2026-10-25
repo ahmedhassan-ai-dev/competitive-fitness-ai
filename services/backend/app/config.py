@@ -7,7 +7,7 @@ from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
+class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=None,
         case_sensitive=True,
@@ -17,21 +17,7 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    app_env: Literal["development", "test", "production"] = Field(
-        validation_alias="APP_ENV"
-    )
     database_url: SecretStr = Field(validation_alias="DATABASE_URL")
-    jwt_secret: SecretStr = Field(validation_alias="JWT_SECRET")
-    jwt_issuer: str = Field(min_length=1, max_length=200, validation_alias="JWT_ISSUER")
-    jwt_audience: str = Field(
-        min_length=1, max_length=200, validation_alias="JWT_AUDIENCE"
-    )
-    jwt_algorithm: Literal["HS256"] = Field(
-        default="HS256", validation_alias="JWT_ALGORITHM"
-    )
-    access_token_ttl_seconds: int = Field(
-        default=900, ge=900, le=900, validation_alias="ACCESS_TOKEN_TTL_SECONDS"
-    )
 
     @field_validator("database_url")
     @classmethod
@@ -53,6 +39,23 @@ class Settings(BaseSettings):
                 "DATABASE_URL must be a PostgreSQL psycopg URL with host and database"
             )
         return value
+
+
+class Settings(DatabaseSettings):
+    app_env: Literal["development", "test", "production"] = Field(
+        validation_alias="APP_ENV"
+    )
+    jwt_secret: SecretStr = Field(validation_alias="JWT_SECRET")
+    jwt_issuer: str = Field(min_length=1, max_length=200, validation_alias="JWT_ISSUER")
+    jwt_audience: str = Field(
+        min_length=1, max_length=200, validation_alias="JWT_AUDIENCE"
+    )
+    jwt_algorithm: Literal["HS256"] = Field(
+        default="HS256", validation_alias="JWT_ALGORITHM"
+    )
+    access_token_ttl_seconds: int = Field(
+        default=900, ge=900, le=900, validation_alias="ACCESS_TOKEN_TTL_SECONDS"
+    )
 
     @field_validator("jwt_secret")
     @classmethod
