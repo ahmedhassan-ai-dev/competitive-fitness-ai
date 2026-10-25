@@ -3,20 +3,44 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    # GitHub-hosted Linux VM includes Docker; no database service is shared/reused.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Install dependencies
         working-directory: services/backend
-        run: pip install -e '.[dev]'
-      - name: Run tests
+        run: python -m pip install -e ../../packages/contracts -e '.[dev]'
+      - name: Verify installed contracts outside repository imports
         working-directory: services/backend
-        run: python -m pytest -q
+        run: python -I -c "from packages.contracts.v1.models import AuthRequest; from importlib.resources import files; assert files('packages.contracts.v1').joinpath('schemas.json').is_file()"
+      - name: Run Python and contract compatibility tests
+        working-directory: services/backend
+        # Failure tracebacks/captured output may contain generated auth secrets.
+        run: python -m pytest -q --tb=no --show-capture=no --no-summary -rN --disable-warnings
       - name: Lint backend and shared reference packages
-        run: python -m ruff check --config services/backend/pyproject.toml services/backend/app services/backend/tests packages/contracts packages/exercise_engine
+        run: python -m ruff check --config services/backend/pyproject.toml services/backend/app services/backend/tests services/backend/alembic services/backend/testing services/backend/integration_tests packages/contracts packages/exercise_engine
+      - name: Check backend formatting
+        run: python -m ruff format --check --config services/backend/pyproject.toml services/backend/app services/backend/tests services/backend/alembic services/backend/testing services/backend/integration_tests
+      - name: Verify local Docker is available
+        working-directory: services/backend
+        run: python -c "from testing.postgres import require_local_docker; require_local_docker()"
+      - name: Run disposable PostgreSQL tests and migration round-trip
+        working-directory: services/backend
+        # Owns creation, upgrade/tests/downgrade/re-upgrade, finally cleanup and
+        # absence verification. Any failure returns nonzero; no second lifecycle.
+        run: python -m testing.postgres

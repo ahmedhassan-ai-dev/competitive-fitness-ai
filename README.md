@@ -24,7 +24,7 @@ DEPI Microsoft Machine Learning graduation project — 14-day Android-first spri
 1. Install Git, Python 3.10+ (recommended 3.11), Flutter SDK, Android SDK and VS Code.
 2. Open repository root in VS Code (`code .`).
 3. Create Flutter skeleton: `cd apps/mobile; flutter create --platforms android --project-name competitive_fitness_mobile .; flutter doctor -v`.
-4. Backend: `cd services/backend; py -3.11 -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install -e ".[dev]"; python -m pytest; uvicorn app.main:app --reload`.
+4. Backend: `cd services/backend; py -3.11 -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install -e ../../packages/contracts -e ".[dev]"; python -m pytest; uvicorn app.main:app --reload`. See `services/backend/README.md` for the strict environment-configured entry point.
 5. Root folder contains only scaffolding for the AI package; module functionality is Sprint 1 work.
 
 ## Team workflow

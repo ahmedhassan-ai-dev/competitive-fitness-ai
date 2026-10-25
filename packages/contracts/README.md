@@ -122,7 +122,12 @@ event. Publish after score commit; duplicate REST retries never create revisions
 
 ## Verification
 
-From `services/backend`, install `python -m pip install -e ".[dev]"`, then:
+Install independently with `python -m pip install ./packages/contracts` from the
+repository root. The distribution is `competitive-fitness-contracts==1.0.0`; Python
+imports remain `packages.contracts.v1`. Wheels include JSON schemas/examples and
+the exporter, without tests or exercise-engine code.
+
+From `services/backend`, install `python -m pip install -e ../../packages/contracts -e ".[dev]"`, then:
 
 ```powershell
 python -m pytest -q
