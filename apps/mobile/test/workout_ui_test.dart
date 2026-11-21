@@ -4,6 +4,7 @@ import 'package:competitive_fitness_mobile/features/workouts/workout_session_scr
 import 'package:competitive_fitness_mobile/main.dart';
 import 'package:competitive_fitness_mobile/models/exercise_type.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> press(WidgetTester tester, String label) async {
@@ -75,7 +76,7 @@ void main() {
 
   for (final exercise in ExerciseType.values) {
     testWidgets(
-      '${exercise.label} journey counts, pauses, summarizes and returns home',
+      '${exercise.label} journey pauses, summarizes and returns home',
       (tester) async {
         await enterDemo(tester);
         await press(tester, 'Start workout');
@@ -85,24 +86,18 @@ void main() {
         expect(find.text('${exercise.label} session'), findsOneWidget);
         await tester.pump(const Duration(seconds: 3));
         expect(find.text('00:03'), findsOneWidget);
-        await press(tester, 'Add mock rep');
-        await press(tester, 'Add mock rep');
+        expect(find.text('0'), findsOneWidget);
         await press(tester, 'Pause');
-        expect(find.text('2'), findsOneWidget);
+        expect(find.text('0'), findsOneWidget);
         final elapsed = tester
             .widget<Text>(find.textContaining(RegExp(r'^\d+:\d\d$')))
             .data;
         await tester.pump(const Duration(seconds: 5));
         expect(find.text(elapsed!), findsOneWidget);
-        final add = tester.widget<FilledButton>(
-          find.widgetWithText(FilledButton, 'Add mock rep'),
-        );
-        expect(add.onPressed, isNull);
         await press(tester, 'Resume');
-        await press(tester, 'Add mock rep');
         await press(tester, 'Finish workout');
         expect(find.text('Workout summary'), findsOneWidget);
-        expect(find.text('3'), findsOneWidget);
+        expect(find.text('0'), findsOneWidget);
         await press(tester, 'Practice again');
         await press(tester, 'Start practice');
         expect(find.text('0'), findsOneWidget);
@@ -121,13 +116,12 @@ void main() {
       await press(tester, 'Start workout');
       await press(tester, 'Choose Squat');
       await press(tester, 'Start practice');
-      await press(tester, 'Add mock rep');
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text('Leave this practice?'), findsOneWidget);
       await press(tester, 'Keep practicing');
       expect(find.text('Paused'), findsOneWidget);
-      expect(find.text('1'), findsOneWidget);
+      expect(find.text('0'), findsOneWidget);
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
       await press(tester, 'Leave practice');
@@ -214,16 +208,47 @@ void main() {
         await press(tester, 'Start workout');
         await press(tester, 'Choose Push-up');
         await press(tester, 'Start practice');
-        await press(tester, 'Add mock rep');
+        expect(tester.takeException(), isNull);
         await press(tester, 'Finish workout');
+        expect(tester.takeException(), isNull);
         await press(tester, 'Back to home');
+        expect(tester.takeException(), isNull);
         await press(tester, 'Explore challenges');
+        expect(tester.takeException(), isNull);
         await press(tester, 'The squat showdown');
+        expect(tester.takeException(), isNull);
         await press(tester, 'Back to challenges');
         expect(tester.takeException(), isNull);
       },
     );
   }
+
+  testWidgets('camera permission denial keeps the workout local and safe', (
+    tester,
+  ) async {
+    const channel = MethodChannel('competitive_fitness/camera_permission');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (call) async => false,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: WorkoutSessionScreen(exercise: ExerciseType.squat),
+      ),
+    );
+
+    await press(tester, 'Enable camera');
+
+    expect(find.text('Camera permission was not granted.'), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('registration remains usable with a keyboard on Small_Phone', (
     tester,

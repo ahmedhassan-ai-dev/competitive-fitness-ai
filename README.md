@@ -4,13 +4,15 @@ DEPI Microsoft Machine Learning graduation project — 14-day Android-first spri
 
 ## Scope
 - Android Flutter app (camera, workout, challenges, results)
-- On-device MediaPipe pose estimation (native Android integration technical spike)
-- Squat/push-up reference rep counting and measurable form feedback
+- On-device MediaPipe pose estimation and squat/push-up rep counting
+- Movement-tracking guidance; no validated form-quality scoring
 - FastAPI backend (users, challenge rooms, workout event ingestion, scores)
 - PostgreSQL and WebSocket live updates
 - Offline Python ML research/training/evaluation
 
-**Status:** foundation scaffold; no functional app or trained model is included yet.
+**Status:** Flutter MVP UI with Android-only on-device MediaPipe pose tracking for
+squat/push-up practice. Server-backed workouts, challenges, accepted scores and
+held-out-user model evaluation are not implemented.
 
 ## Architecture
 - `apps/mobile`: Flutter project created via `flutter create --platforms android --project-name competitive_fitness_mobile .` in this directory

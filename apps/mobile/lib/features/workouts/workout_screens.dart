@@ -81,8 +81,8 @@ class WorkoutPreparationScreen extends StatelessWidget {
         ),
         const InfoCard(
           icon: Icons.touch_app_outlined,
-          title: 'You control this demo',
-          message: 'Tap Add mock rep to simulate a repetition. The camera stays off and form is not assessed.',
+          title: 'Camera-based practice',
+          message: 'The camera runs pose detection on this device. Stand side-on and keep the required joints visible. Rep counting does not assess form quality.',
         ),
         FilledButton.icon(
           onPressed: () => Navigator.of(context).pushReplacement(
@@ -123,7 +123,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
           subtitle: '${exercise.label} practice complete.',
         ),
         AdaptivePair(
-          first: MetricCard(value: '$reps', label: 'Mock reps'),
+          first: MetricCard(value: '$reps', label: 'Detected reps'),
           second: MetricCard(
             value: formatElapsed(elapsed),
             label: 'Active time',
@@ -132,7 +132,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
         const InfoCard(
           icon: Icons.info_outline,
           title: 'Practice, captured',
-          message: 'This summary is local and temporary. Mock reps are not validated or submitted as a challenge score. Form assessment is not available.',
+          message: 'This summary is local and temporary. Rep counts are not validated or submitted as a challenge score. Form assessment is not available.',
         ),
         FilledButton(
           onPressed: () =>
