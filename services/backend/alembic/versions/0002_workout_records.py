@@ -1,9 +1,8 @@
 """Add client-reported workout history (not validated challenge scores)."""
 
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
-
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "0002_workout_records"
 down_revision = "0001_create_users"

@@ -1,9 +1,8 @@
 """Private friendly multiplayer rooms, memberships and once-only workout submissions."""
 
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
-
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "0003_challenge_rooms"
 down_revision = "0002_workout_records"

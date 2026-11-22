@@ -5,13 +5,13 @@ from unittest.mock import Mock
 
 import pytest
 import sqlalchemy as sa
+from alembic import context
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
-from alembic import context
 from app.auth.models import User
 from app.config import DatabaseSettings
 

@@ -2,9 +2,9 @@ from math import cos, radians, sin
 from uuid import UUID
 
 import pytest
-from exercise_engine import ReferenceEngine
 from pydantic import ValidationError
 
+from exercise_engine import ReferenceEngine
 from packages.contracts.v1.models import ExerciseType, Landmark, PoseFrame, RepEvent
 
 SESSION = UUID("00000000-0000-4000-8000-000000000002")
