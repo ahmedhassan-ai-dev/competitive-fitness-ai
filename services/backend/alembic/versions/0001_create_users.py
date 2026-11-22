@@ -1,8 +1,9 @@
 """Create users. Prepared for review; no database execution in Checkpoint 2."""
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "0001_create_users"
 down_revision = None

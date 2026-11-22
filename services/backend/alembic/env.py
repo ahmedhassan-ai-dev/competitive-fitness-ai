@@ -1,13 +1,13 @@
 """Migration wiring. Online access requires an explicit reviewed opt-in."""
 
-from alembic import context
 from sqlalchemy import create_engine
 from sqlalchemy.pool import NullPool
 
+from alembic import context
 from app.auth.models import User
-from app.workouts.models import WorkoutRecord  # noqa: F401
-from app.rooms.models import ChallengeRoom, RoomMember, RoomSubmission  # noqa: F401
 from app.config import DatabaseSettings
+from app.rooms.models import ChallengeRoom, RoomMember, RoomSubmission  # noqa: F401
+from app.workouts.models import WorkoutRecord  # noqa: F401
 
 target_metadata = User.metadata
 

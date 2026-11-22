@@ -1,10 +1,10 @@
 """This suite must be launched through python -m testing.postgres."""
 
 import pytest
-from testing.postgres import RunnerError, Target
 
 from app.config import DatabaseSettings
 from app.db import create_database_engine, create_session_factory
+from testing.postgres import RunnerError, Target
 
 
 @pytest.fixture(scope="session")

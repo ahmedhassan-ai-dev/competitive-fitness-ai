@@ -18,7 +18,7 @@ def date_time_format(value):
     # Use stdlib parsing instead of jsonschema's optional date-time dependency.
     if not isinstance(value, str):
         return True
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    parsed = datetime.fromisoformat(value)
     return "T" in value and parsed.tzinfo is not None
 
 

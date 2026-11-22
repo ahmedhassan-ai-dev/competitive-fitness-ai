@@ -5,13 +5,13 @@ from unittest.mock import Mock
 
 import pytest
 import sqlalchemy as sa
-from alembic import context
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
+from alembic import context
 from app.auth.models import User
 from app.config import DatabaseSettings
 
@@ -91,20 +91,26 @@ def test_online_environment_requires_explicit_review_opt_in(monkeypatch):
 
 
 def test_workout_history_migration_has_safe_foreign_key_and_constraints():
-    scripts = ScriptDirectory.from_config(Config(str(BACKEND / 'alembic.ini')))
-    second = scripts.get_revision('0002_workout_records')
-    assert second.down_revision == '0001_create_users'
+    scripts = ScriptDirectory.from_config(Config(str(BACKEND / "alembic.ini")))
+    second = scripts.get_revision("0002_workout_records")
+    assert second.down_revision == "0001_create_users"
     from app.workouts.models import WorkoutRecord
+
     assert WorkoutRecord.__table__.c.user_id.foreign_keys
-    assert {'reps', 'hold_ms', 'active_ms', 'source'} <= set(WorkoutRecord.__table__.columns.keys())
+    assert {"reps", "hold_ms", "active_ms", "source"} <= set(
+        WorkoutRecord.__table__.columns.keys()
+    )
 
 
 def test_room_migration_revision_chain_and_constraints():
-    scripts = ScriptDirectory.from_config(Config(str(BACKEND / 'alembic.ini')))
-    third = scripts.get_revision('0003_challenge_rooms')
-    assert third.down_revision == '0002_workout_records'
+    scripts = ScriptDirectory.from_config(Config(str(BACKEND / "alembic.ini")))
+    third = scripts.get_revision("0003_challenge_rooms")
+    assert third.down_revision == "0002_workout_records"
     from app.rooms.models import ChallengeRoom, RoomMember, RoomSubmission
-    assert {'room_id', 'invite_code', 'status', 'owner_id'} <= set(ChallengeRoom.__table__.c.keys())
+
+    assert {"room_id", "invite_code", "status", "owner_id"} <= set(
+        ChallengeRoom.__table__.c.keys()
+    )
     assert RoomMember.__table__.primary_key is not None
     assert RoomSubmission.__table__.c.workout_id.foreign_keys
-    assert any('room_id' in index.name for index in RoomSubmission.__table__.indexes)
+    assert any("room_id" in index.name for index in RoomSubmission.__table__.indexes)
