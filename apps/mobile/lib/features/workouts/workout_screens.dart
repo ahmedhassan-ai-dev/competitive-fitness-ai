@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/exercise_type.dart';
+import '../challenges/room_submission_card.dart';
+import '../../services/fitness_api.dart';
 import '../../shared/ui.dart';
 import 'workout_session_screen.dart';
 
@@ -24,9 +26,12 @@ class ExerciseSelectionScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    exercise == ExerciseType.squat
-                        ? Icons.accessibility_new
-                        : Icons.fitness_center,
+                    switch (exercise) {
+                      ExerciseType.squat => Icons.accessibility_new,
+                      ExerciseType.pushUp => Icons.fitness_center,
+                      ExerciseType.jumpingJack => Icons.directions_run,
+                      ExerciseType.plank => Icons.timer_outlined,
+                    },
                     size: 44,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -57,8 +62,9 @@ class ExerciseSelectionScreen extends StatelessWidget {
 }
 
 class WorkoutPreparationScreen extends StatelessWidget {
-  const WorkoutPreparationScreen({super.key, required this.exercise});
+  const WorkoutPreparationScreen({super.key, required this.exercise, this.roomId});
   final ExerciseType exercise;
+  final String? roomId;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -82,12 +88,12 @@ class WorkoutPreparationScreen extends StatelessWidget {
         const InfoCard(
           icon: Icons.touch_app_outlined,
           title: 'Camera-based practice',
-          message: 'The camera runs pose detection on this device. Stand side-on and keep the required joints visible. Rep counting does not assess form quality.',
+          message: 'Pose detection runs on this device. Follow the setup illustration for your exercise. Results are estimates, not verified form scores.',
         ),
         FilledButton.icon(
           onPressed: () => Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => WorkoutSessionScreen(exercise: exercise),
+              builder: (_) => WorkoutSessionScreen(exercise: exercise, roomId: roomId),
             ),
           ),
           icon: const Icon(Icons.play_arrow),
@@ -104,10 +110,14 @@ class WorkoutSummaryScreen extends StatelessWidget {
     required this.exercise,
     required this.reps,
     required this.elapsed,
+    this.holdSeconds = 0,
+    this.roomId,
   });
   final ExerciseType exercise;
   final int reps;
+  final int holdSeconds;
   final Duration elapsed;
+  final String? roomId;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -119,20 +129,31 @@ class WorkoutSummaryScreen extends StatelessWidget {
       children: [
         const Icon(Icons.task_alt, size: 72, color: Color(0xFF176448)),
         SectionHeading(
-          reps > 0 ? 'You showed up.' : 'A start is still a start.',
+          (exercise.isHold ? holdSeconds > 0 : reps > 0)
+              ? 'You showed up.' : 'A start is still a start.',
           subtitle: '${exercise.label} practice complete.',
         ),
         AdaptivePair(
-          first: MetricCard(value: '$reps', label: 'Detected reps'),
+          first: MetricCard(
+            value: exercise.isHold ? '$holdSeconds' : '$reps',
+            label: exercise.isHold ? 'Valid hold seconds' : 'Detected reps',
+          ),
           second: MetricCard(
             value: formatElapsed(elapsed),
             label: 'Active time',
           ),
         ),
+        if (roomId != null)
+          RoomSubmissionCard(roomId: roomId!, exercise: exercise,
+            reps: reps, holdSeconds: holdSeconds, elapsed: elapsed,
+            autoSubmit: true)
+        else if (FitnessApi.instance.signedIn)
+          RoomSubmissionPicker(exercise: exercise, reps: reps,
+            holdSeconds: holdSeconds, elapsed: elapsed),
         const InfoCard(
           icon: Icons.info_outline,
           title: 'Practice, captured',
-          message: 'This summary is local and temporary. Rep counts are not validated or submitted as a challenge score. Form assessment is not available.',
+          message: 'Room totals change only after a successful submission. Scores are estimated and unverified.',
         ),
         FilledButton(
           onPressed: () =>
@@ -142,7 +163,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
         OutlinedButton(
           onPressed: () => Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => WorkoutPreparationScreen(exercise: exercise),
+              builder: (_) => WorkoutPreparationScreen(exercise: exercise, roomId: roomId),
             ),
           ),
           child: const Text('Practice again'),

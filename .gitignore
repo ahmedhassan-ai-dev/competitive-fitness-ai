@@ -62,3 +62,13 @@ mlruns/
 *.iml
 .DS_Store
 Thumbs.db
+
+
+# Local backups and archives
+*.bak
+*.bak.*
+**/icon-backups/
+*.zip
+
+# Local logs
+*.log

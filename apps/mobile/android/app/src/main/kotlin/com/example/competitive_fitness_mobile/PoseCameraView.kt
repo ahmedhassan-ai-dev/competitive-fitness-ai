@@ -19,8 +19,13 @@ import android.widget.FrameLayout
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.camera.view.TransformExperimental
+import androidx.camera.view.transform.CoordinateTransform
+import androidx.camera.view.transform.ImageProxyTransformFactory
+import androidx.camera.view.transform.OutputTransform
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.google.mediapipe.framework.image.BitmapImageBuilder
@@ -29,6 +34,7 @@ import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.StandardMessageCodec
 import io.flutter.plugin.platform.PlatformView
 import io.flutter.plugin.platform.PlatformViewFactory
@@ -49,6 +55,7 @@ internal class PoseCameraViewFactory(
     }
 }
 
+@androidx.annotation.OptIn(markerClass = [TransformExperimental::class])
 private class PoseCameraView(
     context: Context,
     viewId: Int,
@@ -96,10 +103,51 @@ private class PoseCameraView(
     private var disposed = false
     private var modelReady = false
     private var modelError: String? = null
+    // Rear camera is the default; camera switch remains available.
+    private var lensFacing = CameraSelector.LENS_FACING_BACK
+    @Volatile private var cameraGeneration = 0
+    private var pendingLayoutListener: View.OnLayoutChangeListener? = null
+    // The landmarks are detected on an upright bitmap. CameraX owns preview
+    // cropping, rotation, and selfie mirroring; do not mirror the overlay again.
+    private val sourceTransformFactory = ImageProxyTransformFactory().apply {
+        setUsingRotationDegrees(true)
+        setUsingCropRect(false)
+    }
 
     private val eventChannel = EventChannel(messenger, "$EVENT_CHANNEL_PREFIX/$viewId")
+    private val cameraControlChannel =
+        MethodChannel(messenger, "$CONTROL_CHANNEL_PREFIX/$viewId")
 
     init {
+        cameraControlChannel.setMethodCallHandler { call, reply ->
+            if (call.method != "switchCamera") {
+                reply.notImplemented()
+                return@setMethodCallHandler
+            }
+            val provider = cameraProvider
+            if (disposed || !modelReady || eventSink == null || imageAnalysis == null ||
+                provider == null
+            ) {
+                reply.error("camera_not_ready", "Start live tracking before switching cameras.", null)
+                return@setMethodCallHandler
+            }
+            val nextLens = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                CameraSelector.LENS_FACING_BACK
+            } else {
+                CameraSelector.LENS_FACING_FRONT
+            }
+            try {
+                if (!provider.hasCamera(selectorFor(nextLens))) {
+                    reply.error("camera_unavailable", "This device has no camera on that side.", null)
+                    return@setMethodCallHandler
+                }
+                stopCamera()
+                lensFacing = nextLens
+                startCamera(reply)
+            } catch (error: Exception) {
+                reply.error("camera_switch_error", error.message ?: "Camera switch failed.", null)
+            }
+        }
         eventChannel.setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
@@ -162,6 +210,7 @@ private class PoseCameraView(
     override fun dispose() {
         disposed = true
         eventChannel.setStreamHandler(null)
+        cameraControlChannel.setMethodCallHandler(null)
         stopCamera()
         landmarker?.close()
         landmarker = null
@@ -169,41 +218,101 @@ private class PoseCameraView(
         analysisExecutor.shutdownNow()
     }
 
-    private fun startCamera() {
-        if (disposed || eventSink == null || !modelReady || imageAnalysis != null) return
+    private fun selectorFor(facing: Int): CameraSelector =
+        if (facing == CameraSelector.LENS_FACING_FRONT) {
+            CameraSelector.DEFAULT_FRONT_CAMERA
+        } else {
+            CameraSelector.DEFAULT_BACK_CAMERA
+        }
+
+    // A single Android platform view stays alive across switches, preserving
+    // the MediaPipe model and the Dart workout session / rep count.
+    private fun startCamera(reply: MethodChannel.Result? = null) {
+        if (disposed || eventSink == null || !modelReady || imageAnalysis != null) {
+            reply?.error("camera_not_ready", "Camera tracking is unavailable.", null)
+            return
+        }
         if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            eventSink?.error("camera_permission_missing", "Camera permission was not granted.", null)
+            val message = "Camera permission was not granted."
+            if (reply != null) {
+                reply.error("camera_permission_missing", message, null)
+            } else {
+                eventSink?.error("camera_permission_missing", message, null)
+            }
             return
         }
 
+        val generation = cameraGeneration
         val providerFuture = ProcessCameraProvider.getInstance(activity)
         providerFuture.addListener(
             {
-                if (disposed || eventSink == null) return@addListener
+                if (disposed || eventSink == null || generation != cameraGeneration) {
+                    reply?.error("camera_cancelled", "Camera startup was cancelled.", null)
+                    return@addListener
+                }
                 try {
                     val provider = providerFuture.get()
+                    // Older / unusual Android devices may lack a selfie camera.
+                    // Fall back to the available camera at startup.
+                    if (!provider.hasCamera(selectorFor(lensFacing))) {
+                        lensFacing = when {
+                            provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) ->
+                                CameraSelector.LENS_FACING_BACK
+                            provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) ->
+                                CameraSelector.LENS_FACING_FRONT
+                            else -> throw IllegalStateException("No usable camera was found.")
+                        }
+                    }
+                    val viewPort = previewView.viewPort
+                    if (viewPort == null) {
+                        // PlatformView's stream can be subscribed before Android lays out
+                        // PreviewView. Defer binding instead of guessing a crop geometry.
+                        eventSink?.success(status("waiting_for_preview"))
+                        pendingLayoutListener?.let(previewView::removeOnLayoutChangeListener)
+                        val listener = object : View.OnLayoutChangeListener {
+                            override fun onLayoutChange(
+                                view: View, left: Int, top: Int, right: Int, bottom: Int,
+                                oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int,
+                            ) {
+                                if (previewView.viewPort != null) {
+                                    previewView.removeOnLayoutChangeListener(this)
+                                    pendingLayoutListener = null
+                                    if (!disposed && generation == cameraGeneration) {
+                                        startCamera(reply)
+                                    }
+                                }
+                            }
+                        }
+                        pendingLayoutListener = listener
+                        previewView.addOnLayoutChangeListener(listener)
+                        return@addListener
+                    }
                     val preview = Preview.Builder()
                         .setTargetResolution(Size(640, 480))
                         .build()
-                        .also {
-                            it.setSurfaceProvider(previewView.surfaceProvider)
-                        }
+                        .also { it.setSurfaceProvider(previewView.surfaceProvider) }
                     val analysis = ImageAnalysis.Builder()
                         .setTargetResolution(Size(640, 480))
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                         .build()
+                    // Each camera generation owns its own metrics window.
+                    val perfMonitor = PosePerformanceMonitor()
                     analysis.setAnalyzer(analysisExecutor) { image ->
                         try {
-                            processImage(image)
+                            if (!disposed && generation == cameraGeneration) {
+                                processImage(image, generation, perfMonitor)
+                            }
                         } catch (error: Exception) {
                             val message = error.message ?: "Pose inference failed."
                             mainHandler.post {
-                                eventSink?.error("pose_inference_error", message, null)
+                                if (!disposed && generation == cameraGeneration) {
+                                    eventSink?.error("pose_inference_error", message, null)
+                                    imageAnalysis?.clearAnalyzer()
+                                }
                             }
-                            imageAnalysis?.clearAnalyzer()
                         } finally {
                             image.close()
                         }
@@ -211,26 +320,50 @@ private class PoseCameraView(
                     provider.unbindAll()
                     provider.bindToLifecycle(
                         activity as LifecycleOwner,
-                        CameraSelector.DEFAULT_BACK_CAMERA,
-                        preview,
-                        analysis,
+                        selectorFor(lensFacing),
+                        UseCaseGroup.Builder()
+                            .addUseCase(preview)
+                            .addUseCase(analysis)
+                            .setViewPort(viewPort)
+                            .build(),
                     )
                     cameraProvider = provider
                     imageAnalysis = analysis
-                    eventSink?.success(status("tracking"))
-                } catch (error: Exception) {
-                    eventSink?.error(
-                        "camera_start_error",
-                        error.message ?: "Could not start camera.",
-                        null,
+                    eventSink?.success(
+                        mapOf(
+                            "type" to "lens",
+                            "facing" to if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                                "front"
+                            } else {
+                                "back"
+                            },
+                        ),
                     )
+                    eventSink?.success(status("tracking"))
+                    reply?.success(
+                        if (lensFacing == CameraSelector.LENS_FACING_FRONT) "front" else "back",
+                    )
+                } catch (error: Exception) {
+                    val message = error.message ?: "Could not start camera."
+                    if (reply != null) {
+                        reply.error("camera_start_error", message, null)
+                    } else {
+                        eventSink?.error("camera_start_error", message, null)
+                    }
                 }
             },
             ContextCompat.getMainExecutor(activity),
         )
     }
 
-    private fun processImage(image: androidx.camera.core.ImageProxy) {
+    private fun processImage(
+        image: androidx.camera.core.ImageProxy,
+        generation: Int,
+        perfMonitor: PosePerformanceMonitor,
+    ) {
+        val startNs = SystemClock.elapsedRealtimeNanos()
+        // Extract this while ImageProxy is valid. It remains safe after close().
+        val sourceTransform: OutputTransform = sourceTransformFactory.getOutputTransform(image)
         val plane = image.planes.first()
         val source = plane.buffer.duplicate()
         val bytes = ByteArray(source.remaining())
@@ -256,11 +389,14 @@ private class PoseCameraView(
                 .also { bitmap.recycle() }
         }
         val mpImage = BitmapImageBuilder(orientedBitmap).build()
+        val preparedNs = SystemClock.elapsedRealtimeNanos()
         val imageWidth = orientedBitmap.width
         val imageHeight = orientedBitmap.height
         try {
+            // RunningMode.VIDEO requires a monotonic timestamp for each frame.
             val timestamp = SystemClock.elapsedRealtime()
             val result = checkNotNull(landmarker).detectForVideo(mpImage, timestamp)
+            val inferredNs = SystemClock.elapsedRealtimeNanos()
             val pose = result.landmarks().firstOrNull().orEmpty()
             val landmarks = listOf(
                 "left_shoulder" to point(pose, 11, imageWidth, imageHeight),
@@ -281,10 +417,29 @@ private class PoseCameraView(
                 "timestampMs" to timestamp,
                 "landmarks" to landmarks,
             )
+            val reported = perfMonitor.record(
+                endNs = inferredNs,
+                prepMs = (preparedNs - startNs) / 1_000_000.0,
+                inferenceMs = (inferredNs - preparedNs) / 1_000_000.0,
+                poseFound = pose.isNotEmpty(),
+            )
             mainHandler.post {
-                if (!disposed) {
-                    poseOverlay.setLandmarks(landmarks, imageWidth, imageHeight)
+                if (!disposed && generation == cameraGeneration) {
+                    val targetTransform = previewView.outputTransform
+                    if (targetTransform == null) {
+                        poseOverlay.clear()
+                    } else {
+                        try {
+                            val matrix = Matrix()
+                            CoordinateTransform(sourceTransform, targetTransform).transform(matrix)
+                            poseOverlay.setLandmarks(landmarks, imageWidth, imageHeight, matrix)
+                        } catch (_: IllegalArgumentException) {
+                            // A stale/mismatched preview transform is worse than no overlay.
+                            poseOverlay.clear()
+                        }
+                    }
                     eventSink?.success(event)
+                    if (reported != null) eventSink?.success(reported)
                 }
             }
         } finally {
@@ -315,6 +470,9 @@ private class PoseCameraView(
     }
 
     private fun stopCamera() {
+        cameraGeneration++
+        pendingLayoutListener?.let(previewView::removeOnLayoutChangeListener)
+        pendingLayoutListener = null
         imageAnalysis?.clearAnalyzer()
         imageAnalysis = null
         cameraProvider?.unbindAll()
@@ -389,6 +547,7 @@ private class PoseCameraView(
 
     private companion object {
         const val EVENT_CHANNEL_PREFIX = "competitive_fitness/pose"
+        const val CONTROL_CHANNEL_PREFIX = "competitive_fitness/pose_camera_control"
         const val MODEL_FILE = "pose_landmarker_lite.task"
         const val MODEL_URL =
             "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
@@ -401,8 +560,6 @@ private class PoseOverlayView(context: Context) : View(context) {
     private data class Point(val x: Float, val y: Float, val confidence: Float)
 
     private var points = emptyMap<String, Point>()
-    private var imageWidth = 0
-    private var imageHeight = 0
     private val minimumConfidence = 0.5f
     private val bones = listOf(
         "left_shoulder" to "right_shoulder",
@@ -430,15 +587,26 @@ private class PoseOverlayView(context: Context) : View(context) {
     }
     private val jointRadius = 4f * resources.displayMetrics.density
 
-    fun setLandmarks(landmarks: Map<String, Map<String, Double>>, width: Int, height: Int) {
-        imageWidth = width
-        imageHeight = height
+    fun setLandmarks(
+        landmarks: Map<String, Map<String, Double>>,
+        imageWidth: Int,
+        imageHeight: Int,
+        imageToPreview: Matrix,
+    ) {
+        // Dart gets aspect-safe joint coordinates for calculating angles;
+        // convert those back to the upright image's pixel coordinate system
+        // before applying CameraX's exact image->PreviewView transformation.
+        val commonScale = maxOf(imageWidth, imageHeight).toFloat()
         points = landmarks.mapNotNull { (name, value) ->
             val x = value["x"]?.toFloat()
             val y = value["y"]?.toFloat()
             val confidence = value["confidence"]?.toFloat()
-            if (x != null && y != null && confidence != null) {
-                name to Point(x, y, confidence)
+            if (x != null && y != null && confidence != null &&
+                x.isFinite() && y.isFinite() && confidence.isFinite()
+            ) {
+                val coords = floatArrayOf(x * commonScale, y * commonScale)
+                imageToPreview.mapPoints(coords)
+                name to Point(coords[0], coords[1], confidence)
             } else {
                 null
             }
@@ -453,15 +621,7 @@ private class PoseOverlayView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (imageWidth == 0 || imageHeight == 0) return
-
-        val scale = maxOf(width.toFloat() / imageWidth, height.toFloat() / imageHeight)
-        val offsetX = (width - imageWidth * scale) / 2f
-        val offsetY = (height - imageHeight * scale) / 2f
-        val commonScale = maxOf(imageWidth, imageHeight)
-        fun screenX(point: Point) = point.x * commonScale * scale + offsetX
-        fun screenY(point: Point) = point.y * commonScale * scale + offsetY
-
+        // Coordinates are already view pixels, including crop, rotation, mirroring.
         for ((startName, endName) in bones) {
             val start = points[startName]
             val end = points[endName]
@@ -470,16 +630,16 @@ private class PoseOverlayView(context: Context) : View(context) {
                 end.confidence >= minimumConfidence
             ) {
                 canvas.drawLine(
-                    screenX(start),
-                    screenY(start),
-                    screenX(end),
-                    screenY(end),
+                    start.x,
+                    start.y,
+                    end.x,
+                    end.y,
                     linePaint,
                 )
             }
         }
         points.values
             .filter { it.confidence >= minimumConfidence }
-            .forEach { canvas.drawCircle(screenX(it), screenY(it), jointRadius, jointPaint) }
+            .forEach { canvas.drawCircle(it.x, it.y, jointRadius, jointPaint) }
     }
 }

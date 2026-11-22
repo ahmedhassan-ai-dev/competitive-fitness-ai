@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:label="competitive_fitness_mobile"
+        android:label="FitArena"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

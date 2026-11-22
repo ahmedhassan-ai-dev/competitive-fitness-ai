@@ -7,6 +7,8 @@ from app.auth.security import Passwords
 from app.config import Settings
 from app.db import create_database_engine, create_session_factory
 from app.errors import install_error_handlers
+from app.workouts.routes import router as workouts_router
+from app.rooms.routes import router as rooms_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -36,6 +38,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_error_handlers(application)
     if settings is not None:
         application.include_router(auth_router)
+        application.include_router(workouts_router)
+        application.include_router(rooms_router)
 
     @application.get("/api/v1/health")
     def health() -> dict[str, str]:

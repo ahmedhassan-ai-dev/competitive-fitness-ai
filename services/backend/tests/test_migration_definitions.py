@@ -20,8 +20,8 @@ BACKEND = Path(__file__).resolve().parents[1]
 
 def revision():
     scripts = ScriptDirectory.from_config(Config(str(BACKEND / "alembic.ini")))
-    assert scripts.get_heads() == ["0001_create_users"]
-    result = scripts.get_revision("head")
+    assert scripts.get_heads() == ["0003_challenge_rooms"]
+    result = scripts.get_revision("0001_create_users")
     assert result.down_revision is None
     return result.module
 
@@ -88,3 +88,23 @@ def test_online_environment_requires_explicit_review_opt_in(monkeypatch):
     with pytest.raises(RuntimeError, match="require review"):
         runpy.run_path(str(BACKEND / "alembic/env.py"))
     forbidden.assert_not_called()
+
+
+def test_workout_history_migration_has_safe_foreign_key_and_constraints():
+    scripts = ScriptDirectory.from_config(Config(str(BACKEND / 'alembic.ini')))
+    second = scripts.get_revision('0002_workout_records')
+    assert second.down_revision == '0001_create_users'
+    from app.workouts.models import WorkoutRecord
+    assert WorkoutRecord.__table__.c.user_id.foreign_keys
+    assert {'reps', 'hold_ms', 'active_ms', 'source'} <= set(WorkoutRecord.__table__.columns.keys())
+
+
+def test_room_migration_revision_chain_and_constraints():
+    scripts = ScriptDirectory.from_config(Config(str(BACKEND / 'alembic.ini')))
+    third = scripts.get_revision('0003_challenge_rooms')
+    assert third.down_revision == '0002_workout_records'
+    from app.rooms.models import ChallengeRoom, RoomMember, RoomSubmission
+    assert {'room_id', 'invite_code', 'status', 'owner_id'} <= set(ChallengeRoom.__table__.c.keys())
+    assert RoomMember.__table__.primary_key is not None
+    assert RoomSubmission.__table__.c.workout_id.foreign_keys
+    assert any('room_id' in index.name for index in RoomSubmission.__table__.indexes)

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../data/mock_challenges.dart';
+import '../../services/fitness_api.dart';
+import 'room_screens.dart';
 import '../../shared/ui.dart';
 
 enum ChallengePreview { samples, empty, error }
@@ -38,7 +40,9 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => PageBody(
+  Widget build(BuildContext context) => FitnessApi.instance.signedIn
+      ? const RoomsScreen()
+      : PageBody(
     children: [
       const SectionHeading(
         'Better with a rival.',

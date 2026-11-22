@@ -1,0 +1,18 @@
+{
+  "_warning": "TEMPLATE ONLY: replace nulls with verified indices from your MM-Fit array. Do not guess OpenPose/MediaPipe ordering.",
+  "joint_indices": {
+    "left_shoulder": null,
+    "left_elbow": null,
+    "left_wrist": null,
+    "left_hip": null,
+    "left_knee": null,
+    "left_ankle": null,
+    "right_shoulder": null,
+    "right_elbow": null,
+    "right_wrist": null,
+    "right_hip": null,
+    "right_knee": null,
+    "right_ankle": null
+  },
+  "confidence_coordinate_index": null
+}

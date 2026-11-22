@@ -5,6 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.pool import NullPool
 
 from app.auth.models import User
+from app.workouts.models import WorkoutRecord  # noqa: F401
+from app.rooms.models import ChallengeRoom, RoomMember, RoomSubmission  # noqa: F401
 from app.config import DatabaseSettings
 
 target_metadata = User.metadata
