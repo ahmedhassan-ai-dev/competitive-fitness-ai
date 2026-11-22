@@ -1,0 +1,3 @@
+session_id,exercise,pose_jsonl,ground_truth_reps,truth_events_json,subject,view,cadence,source
+pushup_synthetic,pushup,pushup_synthetic.jsonl,2,pushup_true_events.json,synthetic,side,normal,synthetic_demo
+squat_synthetic,squat,squat_synthetic.jsonl,2,squat_true_events.json,synthetic,side,normal,synthetic_demo

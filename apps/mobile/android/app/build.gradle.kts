@@ -46,6 +46,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraXVersion")
     implementation("androidx.camera:camera-view:$cameraXVersion")
     implementation("com.google.mediapipe:tasks-vision:0.10.35")
+    testImplementation("junit:junit:4.13.2")
 }
 
 kotlin {

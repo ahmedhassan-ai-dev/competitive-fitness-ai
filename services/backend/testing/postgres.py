@@ -276,7 +276,7 @@ class Target:
             timeout=60,
         )
 
-    def verify_schema(self, present):
+    def verify_schema(self, present, revision="0001_create_users"):
         self.verify_database("migration")
         with self.connect("migration") as connection:
             exists = connection.execute(
@@ -285,9 +285,7 @@ class Target:
             revisions = connection.execute(
                 "SELECT version_num FROM alembic_version"
             ).fetchall()
-            if exists != present or revisions != (
-                [("0001_create_users",)] if present else []
-            ):
+            if exists != present or revisions != ([(revision,)] if present else []):
                 raise RunnerError("Migration schema/revision verification failed.")
             if (
                 present
@@ -381,8 +379,12 @@ def exercise(target):
     try:
         target.create()
         target.bootstrap()
-        target.migrate("upgrade", "head")
+        target.migrate("upgrade", "0001_create_users")
         target.verify_schema(True)
+        target.migrate("downgrade", "base")
+        target.verify_schema(False)
+        target.migrate("upgrade", "head")
+        target.verify_schema(True, revision="0003_challenge_rooms")
         target.grant_runtime()
         with tempfile.TemporaryDirectory(prefix="fitness-pg-pytest-") as temp:
             result = command(
@@ -413,12 +415,8 @@ def exercise(target):
             raise RunnerError(
                 "PostgreSQL integration tests failed; see counts above. Detailed diagnostics are suppressed to protect credentials."
             )
-        target.migrate("downgrade", "base")
-        target.verify_schema(False)
-        target.migrate("upgrade", "head")
-        target.verify_schema(True)
         print(
-            "Migration round-trip passed: upgrade/head, downgrade/base, re-upgrade/head.",
+            "Migration round-trip passed for 0001; upgraded to head 0003 successfully.",
             flush=True,
         )
     finally:

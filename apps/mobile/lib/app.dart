@@ -10,7 +10,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = ColorScheme.fromSeed(seedColor: const Color(0xFF176448));
     return MaterialApp(
-      title: 'Competitive Fitness',
+      title: 'FitArena',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

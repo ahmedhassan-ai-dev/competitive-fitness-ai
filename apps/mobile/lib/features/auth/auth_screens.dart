@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/ui.dart';
+import '../../shared/fitarena_brand.dart';
+import '../../services/fitness_api.dart';
 import '../home/home_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -8,7 +10,7 @@ class WelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('COMPETITIVE / FITNESS')),
+    appBar: AppBar(centerTitle: true, title: const FitArenaBrandHeader()),
     body: PageBody(
       children: [
         const SizedBox(height: 12),
@@ -21,11 +23,7 @@ class WelcomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.bolt_rounded,
-                size: 68,
-                color: Color(0xFFD2EF89),
-              ),
+              const FitArenaMark(size: 68),
               const SizedBox(height: 24),
               Text(
                 'Your next rep.\nYour next level.',
@@ -54,10 +52,12 @@ class WelcomeScreen extends StatelessWidget {
           onPressed: () => _enterDemo(context),
           child: const Text('Explore demo'),
         ),
-        const InfoCard(
+        InfoCard(
           icon: Icons.science_outlined,
-          title: 'Explore the MVP',
-          message: 'A local demo with simulated workouts and sample challenges. No account or camera needed.',
+          title: 'Explore FitArena',
+          message: FitnessApi.instance.isConfigured
+              ? 'Live multiplayer needs a server connection; Explore demo is still available offline.'
+              : 'A local demo with simulated workouts and sample challenges. No account or camera needed.',
         ),
       ],
     ),
@@ -81,12 +81,15 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _form = GlobalKey<FormState>();
   final _password = TextEditingController();
+  final _username = TextEditingController();
+  String? _error;
   bool _hidden = true;
   bool _loading = false;
 
   @override
   void dispose() {
     _password.dispose();
+    _username.dispose();
     super.dispose();
   }
 
@@ -94,14 +97,25 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!_form.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     setState(() => _loading = true);
-    // A local delay previews submission; no credentials are read or retained.
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    if (mounted) _enterDemo(context);
+    if (!FitnessApi.instance.isConfigured) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      if (mounted) _enterDemo(context);
+      return;
+    }
+    try {
+      await FitnessApi.instance.authenticate(username: _username.text.trim(),
+        password: _password.text, register: widget.register);
+      if (mounted) _enterDemo(context);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.register ? 'Create account' : 'Log in')),
+    appBar: AppBar(centerTitle: true, title: const FitArenaBrandHeader()),
     body: PageBody(
       children: [
         SectionHeading(
@@ -109,7 +123,9 @@ class _AuthScreenState extends State<AuthScreen> {
               ? 'Start your next chapter.'
               : 'Ready for another rep?',
           subtitle:
-              'Demo only. Use made-up credentials; nothing is sent or saved.',
+              FitnessApi.instance.isConfigured
+              ? 'Use your account to join live friends rooms.'
+              : 'Demo only. Use made-up credentials; nothing is sent or saved.',
         ),
         Form(
           key: _form,
@@ -117,6 +133,7 @@ class _AuthScreenState extends State<AuthScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
+                controller: _username,
                 decoration: const InputDecoration(
                   labelText: 'Username',
                   prefixIcon: Icon(Icons.person_outline),
@@ -169,6 +186,10 @@ class _AuthScreenState extends State<AuthScreen> {
                       value == _password.text ? null : 'Passwords must match.',
                 ),
               ],
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ],
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _loading ? null : _submit,
@@ -183,8 +204,8 @@ class _AuthScreenState extends State<AuthScreen> {
                       )
                     : Text(
                         widget.register
-                            ? 'Create demo account'
-                            : 'Continue to demo',
+                            ? (FitnessApi.instance.isConfigured ? 'Create account' : 'Create demo account')
+                            : (FitnessApi.instance.isConfigured ? 'Log in' : 'Continue to demo'),
                       ),
               ),
             ],

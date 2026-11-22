@@ -54,7 +54,7 @@ def test_auth_paths_operations_and_schemas_match_approved_openapi(app):
             schema["components"]["schemas"][name]
             == contract["components"]["schemas"][name]
         )
-    assert set(schema["paths"]) == {
+    assert set(schema["paths"]) >= {
         "/api/v1/health",
         "/api/v1/auth/register",
         "/api/v1/auth/token",

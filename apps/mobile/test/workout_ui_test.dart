@@ -47,7 +47,7 @@ void main() {
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     await tester.pumpAndSettle();
-    expect(find.text('Your training hub'), findsOneWidget);
+    expect(find.text('FitArena'), findsOneWidget);
     await tester.tap(find.byTooltip('Leave demo'));
     await tester.pumpAndSettle();
     expect(find.text('Your next rep.\nYour next level.'), findsOneWidget);
@@ -71,7 +71,7 @@ void main() {
       'made-up-password',
     );
     await press(tester, 'Create demo account');
-    expect(find.text('Your training hub'), findsOneWidget);
+    expect(find.text('FitArena'), findsOneWidget);
   });
 
   for (final exercise in ExerciseType.values) {
@@ -84,8 +84,9 @@ void main() {
         expect(find.text('${exercise.label} practice'), findsOneWidget);
         await press(tester, 'Start practice');
         expect(find.text('${exercise.label} session'), findsOneWidget);
+        await press(tester, 'Begin tracking');
         await tester.pump(const Duration(seconds: 3));
-        expect(find.text('00:03'), findsOneWidget);
+        expect(find.text('00:00'), findsOneWidget);
         expect(find.text('0'), findsOneWidget);
         await press(tester, 'Pause');
         expect(find.text('0'), findsOneWidget);
@@ -100,10 +101,11 @@ void main() {
         expect(find.text('0'), findsOneWidget);
         await press(tester, 'Practice again');
         await press(tester, 'Start practice');
+        await press(tester, 'Begin tracking');
         expect(find.text('0'), findsOneWidget);
         await press(tester, 'Finish workout');
         await press(tester, 'Back to home');
-        expect(find.text('Your training hub'), findsOneWidget);
+        expect(find.text('FitArena'), findsOneWidget);
         expect(find.byType(WorkoutSessionScreen), findsNothing);
       },
     );
@@ -116,6 +118,7 @@ void main() {
       await press(tester, 'Start workout');
       await press(tester, 'Choose Squat');
       await press(tester, 'Start practice');
+      await press(tester, 'Begin tracking');
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text('Leave this practice?'), findsOneWidget);
@@ -138,18 +141,19 @@ void main() {
         home: WorkoutSessionScreen(exercise: ExerciseType.squat),
       ),
     );
+    await press(tester, 'Begin tracking');
     await tester.pump(const Duration(seconds: 2));
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     await tester.pump();
     expect(find.text('Paused'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
-    expect(find.text('00:02'), findsOneWidget);
+    expect(find.text('00:00'), findsOneWidget);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     expect(find.text('Paused'), findsOneWidget);
     await press(tester, 'Resume');
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('00:03'), findsOneWidget);
+    expect(find.text('00:00'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -191,7 +195,7 @@ void main() {
     expect(find.text('The squat showdown'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.home_outlined));
     await tester.pumpAndSettle();
-    expect(find.text('Make today count.'), findsOneWidget);
+    expect(find.text('Every rep\nadds up.'), findsOneWidget);
   });
 
   for (final scale in [1.0, 2.0]) {
@@ -208,6 +212,7 @@ void main() {
         await press(tester, 'Start workout');
         await press(tester, 'Choose Push-up');
         await press(tester, 'Start practice');
+        await press(tester, 'Begin tracking');
         expect(tester.takeException(), isNull);
         await press(tester, 'Finish workout');
         expect(tester.takeException(), isNull);
@@ -243,6 +248,7 @@ void main() {
       ),
     );
 
+    await press(tester, 'Begin tracking');
     await press(tester, 'Enable camera');
 
     expect(find.text('Camera permission was not granted.'), findsOneWidget);
@@ -274,7 +280,7 @@ void main() {
       await tester.enterText(field, value);
     }
     await press(tester, 'Create demo account');
-    expect(find.text('Your training hub'), findsOneWidget);
+    expect(find.text('FitArena'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -282,6 +288,8 @@ void main() {
     expect(ExerciseType.values.map((exercise) => exercise.wireName), [
       'squat',
       'push_up',
+      'jumping_jack',
+      'plank',
     ]);
     for (final challenge in mockChallenges) {
       expect(challenge.participants.length, inInclusiveRange(1, 2));
